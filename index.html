@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MTG Token Controller</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body { font-family: -apple-system, sans-serif; background: #121212; color: white; text-align: center; padding: 20px; }
+        .card { background: #1e1e1e; border-radius: 20px; padding: 25px; border: 1px solid #333; }
+        .val { font-size: 80px; font-weight: bold; color: #00d1b2; margin: 10px 0; }
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        button { padding: 20px; border-radius: 12px; border: none; font-size: 20px; font-weight: bold; cursor: pointer; }
+        .btn-main { background: #34495e; color: white; }
+        .btn-sync { background: #27ae60; color: white; width: 100%; margin-top: 20px; padding: 25px; }
+        .btn-util { background: #7f8c8d; color: white; }
+        input { width: 100%; padding: 15px; box-sizing: border-box; background: #252525; border: 1px solid #444; color: white; border-radius: 10px; margin-bottom: 15px; font-size: 18px; }
+    </style>
+</head>
+<body>
+    <div id="connection-status" style="font-size: 12px; color: #888; margin-bottom: 10px;">Board IP: 192.168.4.1</div>
+    <div class="card">
+        <input type="text" id="tokenName" value="Treasure">
+        <div class="val" id="count">0</div>
+        
+        <div class="controls">
+            <button class="btn-main" onclick="change(-1)">-1</button>
+            <button class="btn-main" onclick="change(1)">+1</button>
+            <button class="btn-main" onclick="multiply(2)">X2</button>
+            <button class="btn-main" onclick="multiply(3)">X3</button>
+            <button class="btn-util" onclick="reset()">RESET</button>
+            <button class="btn-util" onclick="sync(true)">CLEAN</button>
+        </div>
+        
+        <button class="btn-sync" onclick="sync(false)">SYNC TO BOARD</button>
+    </div>
+
+    <script>
+        let count = 0;
+        const boardIP = "http://192.168.4.1";
+
+        function change(v) { count += v; if(count < 0) count = 0; updateUI(); }
+        function multiply(m) { count *= m; updateUI(); }
+        function reset() { count = 0; updateUI(); }
+        function updateUI() { document.getElementById('count').innerText = count; }
+
+        async function sync(force) {
+            const name = document.getElementById('tokenName').value;
+            let url = `${boardIP}/update?v=${count}&n=${encodeURIComponent(name)}`;
+            if(force) url += "&force=1";
+            
+            try {
+                const response = await fetch(url, { mode: 'no-cors' });
+                console.log("Sync attempted");
+            } catch (e) {
+                alert("Connection failed. Are you connected to the MTG-Token-Board Wi-Fi?");
+            }
+        }
+    </script>
+</body>
+</html>
