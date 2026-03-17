@@ -1,59 +1,247 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>MTG Token Controller</title>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MTG Link: Tactical Suite</title>
     <style>
-        body { font-family: -apple-system, sans-serif; background: #121212; color: white; text-align: center; padding: 20px; }
-        .card { background: #1e1e1e; border-radius: 20px; padding: 25px; border: 1px solid #333; }
-        .val { font-size: 80px; font-weight: bold; color: #00d1b2; margin: 10px 0; }
-        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        button { padding: 20px; border-radius: 12px; border: none; font-size: 20px; font-weight: bold; cursor: pointer; }
-        .btn-main { background: #34495e; color: white; }
-        .btn-sync { background: #27ae60; color: white; width: 100%; margin-top: 20px; padding: 25px; }
-        .btn-util { background: #7f8c8d; color: white; }
-        input { width: 100%; padding: 15px; box-sizing: border-box; background: #252525; border: 1px solid #444; color: white; border-radius: 10px; margin-bottom: 15px; font-size: 18px; }
+        :root {
+            --bg-top: #EDEEF4; --bg-bottom: #FFFFFF;
+            --bg-container: #F8F7F6; --bg-sub: #F0F0F0;
+            --text-black: #0D0E0E;
+            --btn-upload: #005EFF;
+            --btn-plus: #12B25A;
+            --btn-minus: #EF5A3F;
+            --btn-double: #6E55FF;
+            --btn-reset: #FF9E00;
+            --btn-preset: #F0E7DF;
+            --header-icon-h: 13px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: linear-gradient(to bottom, var(--bg-top) 0%, var(--bg-bottom) 100%);
+            background-attachment: fixed;
+            color: var(--text-black); margin: 0; padding-bottom: 120px; min-height: 100vh;
+        }
+
+        header {
+            padding: 12px 20px; display: flex; justify-content: space-between; align-items: center;
+            font-size: 13px; font-weight: 700; color: #0D0E0E;
+        }
+        
+        .header-icon { height: var(--header-icon-h); vertical-align: middle; }
+        .wifi-icon { margin-right: 6px; }
+
+        .view-title { font-size: 44px; font-weight: 900; text-align: center; text-transform: uppercase; margin: 10px 0; letter-spacing: -1px; }
+
+        .reset-wrapper { display: flex; justify-content: center; margin-bottom: 15px; }
+
+        .container {
+            background: var(--bg-container); border-radius: 40px; padding: 30px 20px;
+            margin: 15px auto; width: 88%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.04);
+            position: relative;
+        }
+
+        /* Token Card Specifics */
+        .close-btn { position: absolute; top: 20px; right: 25px; width: 20px; height: 20px; background: #FF9E00; border-radius: 50%; cursor: pointer; border: none; }
+        .token-name-input { width: 80%; border: none; background: transparent; text-align: center; font-size: 26px; font-weight: 500; border-bottom: 1px solid #DDD; padding-bottom: 5px; margin: 0 auto 15px auto; display: block; outline: none; }
+        .count-display { font-size: 110px; font-weight: 900; text-align: center; margin: 10px 0; line-height: 0.9; }
+        .batch-box { background: var(--bg-sub); border-radius: 18px; padding: 15px; margin: 20px 0; }
+        .batch-label { font-size: 11px; font-weight: 700; color: #666; text-align: center; text-transform: uppercase; margin-bottom: 10px; }
+        .batch-row { display: flex; justify-content: center; align-items: center; gap: 10px; }
+
+        /* Counter Sub-Cards (For Globals/Commander) */
+        .sub-tracker-item { background: white; border-radius: 25px; padding: 20px; margin-bottom: 12px; border: 1px solid #EEE; }
+        .sub-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .sub-name { font-weight: 700; font-size: 22px; }
+        .sub-val { font-weight: 900; font-size: 34px; }
+
+        /* Buttons */
+        button { border: none; border-radius: 14px; color: white; font-weight: 800; cursor: pointer; }
+        button:active { opacity: 0.8; }
+        .btn-plus { background: var(--btn-plus); height: 55px; font-size: 28px; width: 100%; }
+        .btn-minus { background: var(--btn-minus); height: 55px; font-size: 28px; width: 100%; }
+        .btn-double { background: var(--btn-double); height: 45px; width: 60px; font-size: 20px; }
+        .btn-upload { background: var(--btn-upload); width: 100%; padding: 18px; font-size: 22px; border-radius: 20px; margin-top: 15px; }
+        .btn-reset { background: var(--btn-reset); padding: 10px 30px; border-radius: 12px; font-size: 15px; }
+        .btn-preset { background: var(--btn-preset); color: var(--text-black); padding: 10px 18px; font-size: 14px; font-weight: 700; border-radius: 12px; }
+
+        .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        /* Nav Bar */
+        .nav-bar { position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); background: #0D0E0E; width: 90%; max-width: 420px; height: 75px; border-radius: 40px; display: flex; justify-content: space-around; align-items: center; padding: 0 10px; z-index: 1000; }
+        .nav-item { height: 58px; width: 75px; display: flex; justify-content: center; align-items: center; cursor: pointer; border-radius: 30px; }
+        .nav-item img { height: 32px; filter: invert(1); }
+        .nav-item.active { background: #FFFFFF; border: 2px solid #FFFFFF; }
+        .nav-item.active img { filter: invert(0); }
+
+        .view { display: none; width: 100%; }
+        .view.active { display: block; }
     </style>
 </head>
 <body>
-    <div id="connection-status" style="font-size: 12px; color: #888; margin-bottom: 10px;">Board IP: 192.168.4.1</div>
-    <div class="card">
-        <input type="text" id="tokenName" value="Treasure">
-        <div class="val" id="count">0</div>
-        
-        <div class="controls">
-            <button class="btn-main" onclick="change(-1)">-1</button>
-            <button class="btn-main" onclick="change(1)">+1</button>
-            <button class="btn-main" onclick="multiply(2)">X2</button>
-            <button class="btn-main" onclick="multiply(3)">X3</button>
-            <button class="btn-util" onclick="reset()">RESET</button>
-            <button class="btn-util" onclick="sync(true)">CLEAN</button>
+
+    <header>
+        <div><img src="Wi-Fi_On.svg" class="header-icon wifi-icon"> 192.168.4.1</div>
+        <div><span id="header-batt-val">99%</span> <img id="header-batt-img" src="Battery_Full.svg" class="header-icon"></div>
+    </header>
+
+    <div id="tokens-view" class="view active">
+        <div class="view-title">Token Tracker</div>
+        <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 20px;">
+            <button class="btn-preset" onclick="applyPreset('Treasure')">Treasure</button>
+            <button class="btn-preset" onclick="applyPreset('Food')">Food</button>
+            <button class="btn-preset" onclick="applyPreset('Clue')">Clue</button>
         </div>
-        
-        <button class="btn-sync" onclick="sync(false)">SYNC TO BOARD</button>
+        <div id="token-list"></div>
+        <div style="text-align:center; margin-top:20px;">
+            <button onclick="addToken()" style="background:white; color:black; box-shadow:0 6px 15px rgba(0,0,0,0.1); width:60px; height:60px; border-radius:20px; font-size:35px; margin:0 auto;">+</button>
+        </div>
     </div>
 
+    <div id="globals-view" class="view">
+        <div class="view-title">Game Counters</div>
+        <div class="reset-wrapper"><button class="btn-reset" onclick="resetSection('globals')">Reset Counters</button></div>
+        <div class="container" id="globals-list"></div>
+    </div>
+
+    <div id="cmdr-view" class="view">
+        <div class="view-title">Damage</div>
+        <div class="reset-wrapper"><button class="btn-reset" onclick="resetSection('cmdr')">Reset Damage</button></div>
+        <div class="container" id="cmdr-list"></div>
+    </div>
+
+    <div id="settings-view" class="view">
+        <div class="view-title">Settings</div>
+        <div class="container">
+            <button class="btn-upload" onclick="localStorage.clear(); location.reload();" style="background: var(--btn-reset:)">Clear Local Data</button>
+        </div>
+    </div>
+
+    <nav class="nav-bar">
+        <div class="nav-item active" onclick="showView('tokens-view', this)"><img src="token-icon.svg"></div>
+        <div class="nav-item" onclick="showView('globals-view', this)"><img src="global-icon.svg"></div>
+        <div class="nav-item" onclick="showView('cmdr-view', this)"><img src="cmdr-icon.svg"></div>
+        <div class="nav-item" onclick="showView('settings-view', this)"><img src="setting-icon.svg"></div>
+    </nav>
+
     <script>
-        let count = 0;
+        const RAPID_STEP = 5;
         const boardIP = "http://192.168.4.1";
 
-        function change(v) { count += v; if(count < 0) count = 0; updateUI(); }
-        function multiply(m) { count *= m; updateUI(); }
-        function reset() { count = 0; updateUI(); }
-        function updateUI() { document.getElementById('count').innerText = count; }
+        let state = JSON.parse(localStorage.getItem('mtg_v5_state')) || {
+            tokens: [{ name: "New Token", count: 1 }],
+            globals: { Poison: 0, Energy: 0, RAD: 0, Experience: 0 },
+            cmdr: { "Player 2": 0, "Player 3": 0, "Player 4": 0, "Player 5": 0 },
+            batt: 100,
+            charging: false
+        };
 
-        async function sync(force) {
-            const name = document.getElementById('tokenName').value;
-            let url = `${boardIP}/update?v=${count}&n=${encodeURIComponent(name)}`;
-            if(force) url += "&force=1";
-            
-            try {
-                const response = await fetch(url, { mode: 'no-cors' });
-                console.log("Sync attempted");
-            } catch (e) {
-                alert("Connection failed. Are you connected to the MTG-Token-Board Wi-Fi?");
-            }
+        function save() { localStorage.setItem('mtg_v5_state', JSON.stringify(state)); render(); }
+        
+        function showView(id, el) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            el.classList.add('active');
         }
+
+        // Long Press Logic
+        function setupLongPress(btn, onShort, onLong) {
+            let timer, isLong = false;
+            btn.onpointerdown = (e) => {
+                isLong = false;
+                timer = setTimeout(() => { isLong = true; onLong(); }, 600);
+            };
+            btn.onpointerup = (e) => {
+                clearTimeout(timer);
+                if (!isLong) onShort();
+            };
+            btn.onpointerleave = () => clearTimeout(timer);
+        }
+
+        /* ACTIONS */
+        function addToken() { state.tokens.push({ name: "New Token", count: 1 }); save(); }
+        function applyPreset(n) { state.tokens.push({ name: n, count: 1 }); save(); }
+        function resetSection(s) { if(confirm('Reset all values?')) { Object.keys(state[s]).forEach(k => state[s][k] = 0); save(); } }
+        async function sync(n, v) { try { await fetch(`${boardIP}/update?v=${v}&n=${encodeURIComponent(n)}`, { mode: 'no-cors' }); } catch(e){} }
+
+        /* RENDER */
+        function render() {
+            // Header
+            document.getElementById('header-batt-val').innerText = state.batt + "%";
+            const bImg = document.getElementById('header-batt-img');
+            if(state.charging) bImg.src = "Battery_Charging.svg";
+            else if(state.batt > 80) bImg.src = "Battery_Full.svg";
+            else if(state.batt > 20) bImg.src = "Battery_half.svg";
+            else bImg.src = "Battery_Empty.svg";
+
+            // Tokens
+            const tList = document.getElementById('token-list');
+            tList.innerHTML = state.tokens.map((t, i) => `
+                <div class="container">
+                    <button class="close-btn" onclick="state.tokens.splice(${i},1); save()"></button>
+                    <input class="token-name-input" value="${t.name}" onchange="state.tokens[${i}].name=this.value; save()">
+                    <div class="count-display">${t.count}</div>
+                    <div class="batch-box">
+                        <div class="batch-label">Create & Double Batch</div>
+                        <div class="batch-row">
+                            <input type="number" id="bv-${i}" value="1" style="width:50px; border:none; background:transparent; font-size:24px; font-weight:900; border-bottom:2px solid #BBB; text-align:center; outline:none;">
+                            <button class="btn-double" onclick="document.getElementById('bv-${i}').value *= 2">x2</button>
+                            <button class="btn-double" onclick="document.getElementById('bv-${i}').value *= 3">x3</button>
+                            <button class="btn-plus" style="width:50px; height:45px;" onclick="state.tokens[${i}].count += parseInt(document.getElementById('bv-${i}').value); save()">+</button>
+                        </div>
+                    </div>
+                    <div class="control-grid">
+                        <button class="btn-minus" id="tm-${i}">-1</button>
+                        <button class="btn-plus" id="tp-${i}">+1</button>
+                        <button class="btn-double" style="width:100%" onclick="state.tokens[${i}].count *= 2; save()">x2</button>
+                        <button class="btn-double" style="width:100%" onclick="state.tokens[${i}].count *= 3; save()">x3</button>
+                    </div>
+                    <button class="btn-upload" onclick="sync(state.tokens[${i}].name, state.tokens[${i}].count)">Upload</button>
+                </div>
+            `).join('');
+
+            // Sub-Counter Pages (Globals & Cmdr)
+            const renderSub = (obj, targetId, stateKey) => {
+                const target = document.getElementById(targetId);
+                target.innerHTML = Object.keys(obj).map(key => `
+                    <div class="sub-tracker-item">
+                        <div class="sub-label-row">
+                            <span class="sub-name">${key}</span>
+                            <span class="sub-val">${obj[key]}</span>
+                        </div>
+                        <div class="control-grid">
+                            <button class="btn-minus" id="sm-${stateKey}-${key}">-1</button>
+                            <button class="btn-plus" id="sp-${stateKey}-${key}">+1</button>
+                        </div>
+                        <button class="btn-upload" onclick="sync('${key}', state.${stateKey}['${key}'])">Sync ${key}</button>
+                    </div>
+                `).join('');
+
+                // Bind Long Press for these items
+                Object.keys(obj).forEach(key => {
+                    setupLongPress(document.getElementById(`sm-${stateKey}-${key}`), 
+                        () => { state[stateKey][key]--; save(); }, 
+                        () => { state[stateKey][key] -= RAPID_STEP; save(); });
+                    setupLongPress(document.getElementById(`sp-${stateKey}-${key}`), 
+                        () => { state[stateKey][key]++; save(); }, 
+                        () => { state[stateKey][key] += RAPID_STEP; save(); });
+                });
+            };
+
+            renderSub(state.globals, 'globals-list', 'globals');
+            renderSub(state.cmdr, 'cmdr-list', 'cmdr');
+
+            // Bind Long Press for Tokens
+            state.tokens.forEach((_, i) => {
+                setupLongPress(document.getElementById(`tm-${i}`), () => { state.tokens[i].count--; save(); }, () => { state.tokens[i].count -= RAPID_STEP; save(); });
+                setupLongPress(document.getElementById(`tp-${i}`), () => { state.tokens[i].count++; save(); }, () => { state.tokens[i].count += RAPID_STEP; save(); });
+            });
+        }
+
+        render();
     </script>
 </body>
 </html>
