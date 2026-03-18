@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -31,15 +31,13 @@
             font-family: 'Inter', -apple-system, sans-serif;
             background: linear-gradient(to bottom, var(--bg-top) 0%, var(--bg-bottom) 100%);
             background-attachment: fixed;
-            color: var(--text-black); margin: 0; padding-bottom: 120px; min-height: 100vh;
-            /* Prevents pull-to-refresh when sliding down */
+            color: var(--text-black); margin: 0; padding-bottom: 140px; min-height: 100vh;
             overscroll-behavior-y: contain; 
         }
 
         header {
             padding: 12px 20px; display: flex; justify-content: space-between; align-items: center;
             font-size: 13px; font-weight: 700; color: #0D0E0E;
-            /* Safe area padding for iPhones with notches */
             padding-top: env(safe-area-inset-top); 
         }
         
@@ -47,8 +45,6 @@
         .wifi-icon { margin-right: 6px; }
 
         .view-title { font-size: 44px; font-weight: 900; text-align: center; text-transform: uppercase; margin: 10px 0; letter-spacing: -1px; }
-
-        .reset-wrapper { display: flex; justify-content: center; margin-bottom: 15px; }
 
         .container {
             background: var(--bg-container); border-radius: 40px; padding: 30px 20px;
@@ -63,13 +59,8 @@
         .batch-label { font-size: 11px; font-weight: 700; color: #666; text-align: center; text-transform: uppercase; margin-bottom: 10px; }
         .batch-row { display: flex; justify-content: center; align-items: center; gap: 10px; }
 
-        .sub-tracker-item { background: white; border-radius: 25px; padding: 20px; margin-bottom: 12px; border: 1px solid #EEE; }
-        .sub-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .sub-name { font-weight: 700; font-size: 22px; }
-        .sub-val { font-weight: 900; font-size: 34px; }
-
         button { border: none; border-radius: 14px; color: white; font-weight: 800; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-        button:active { opacity: 0.8; }
+        button:active { opacity: 0.8; transform: scale(0.98); }
         .btn-plus { background: var(--btn-plus); height: 55px; font-size: 28px; width: 100%; }
         .btn-minus { background: var(--btn-minus); height: 55px; font-size: 28px; width: 100%; }
         .btn-double { background: var(--btn-double); height: 45px; width: 60px; font-size: 20px; }
@@ -109,25 +100,6 @@
         </div>
     </div>
 
-    <div id="globals-view" class="view">
-        <div class="view-title">Game Counters</div>
-        <div class="reset-wrapper"><button class="btn-reset" onclick="resetSection('globals')">Reset Counters</button></div>
-        <div class="container" id="globals-list"></div>
-    </div>
-
-    <div id="cmdr-view" class="view">
-        <div class="view-title">Damage</div>
-        <div class="reset-wrapper"><button class="btn-reset" onclick="resetSection('cmdr')">Reset Damage</button></div>
-        <div class="container" id="cmdr-list"></div>
-    </div>
-
-    <div id="settings-view" class="view">
-        <div class="view-title">Settings</div>
-        <div class="container">
-            <button class="btn-upload" onclick="localStorage.clear(); location.reload();" style="background: var(--btn-reset)">Clear Local Data</button>
-        </div>
-    </div>
-
     <nav class="nav-bar">
         <div class="nav-item active" onclick="showView('tokens-view', this)"><img src="token-icon.svg"></div>
         <div class="nav-item" onclick="showView('globals-view', this)"><img src="global-icon.svg"></div>
@@ -136,8 +108,7 @@
     </nav>
 
     <script>
-        // --- PWA SETUP ---
-        // Generates manifest dynamically to keep this as a single file deployment
+        // --- PWA MANIFEST ---
         const manifest = {
             "name": "MTG Link Tactical",
             "short_name": "MTG Link",
@@ -145,25 +116,14 @@
             "display": "standalone",
             "background_color": "#EDEEF4",
             "theme_color": "#EDEEF4",
-            "icons": [
-                { "src": "token-icon.svg", "sizes": "512x512", "type": "image/svg+xml" }
-            ]
+            "icons": [{ "src": "token-icon.svg", "sizes": "512x512", "type": "image/svg+xml" }]
         };
-        const stringManifest = JSON.stringify(manifest);
-        const blob = new Blob([stringManifest], {type: 'application/json'});
-        const manifestURL = URL.createObjectURL(blob);
-        document.querySelector('#manifest-placeholder').setAttribute('href', manifestURL);
+        const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+        document.querySelector('#manifest-placeholder').setAttribute('href', URL.createObjectURL(manifestBlob));
 
-        // Simple Service Worker Registration for Offline Capability
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js').catch(err => console.log('SW reg failed: ', err));
-            });
-        }
-
-        // --- APP LOGIC ---
+        // --- APP STATE ---
         const RAPID_STEP = 5;
-        const boardIP = "//192.168.4.1";
+        const boardIP = "http://192.168.4.1";
 
         let state = JSON.parse(localStorage.getItem('mtg_v5_state')) || {
             tokens: [{ name: "New Token", count: 1 }],
@@ -182,6 +142,20 @@
             el.classList.add('active');
         }
 
+        // --- UPDATED SYNC LOGIC ---
+        async function sync(n, v) { 
+            const url = `${boardIP}/update?v=${v}&n=${encodeURIComponent(n)}`;
+            console.log("Syncing:", url);
+            try { 
+                await fetch(url, { 
+                    method: 'GET',
+                    mode: 'no-cors', 
+                    cache: 'no-cache',
+                    credentials: 'omit'
+                }); 
+            } catch(e){ console.error("Sync error:", e); } 
+        }
+
         function setupLongPress(btn, onShort, onLong) {
             if (!btn) return;
             let timer, isLong = false;
@@ -198,17 +172,9 @@
 
         function addToken() { state.tokens.push({ name: "New Token", count: 1 }); save(); }
         function applyPreset(n) { state.tokens.push({ name: n, count: 1 }); save(); }
-        function resetSection(s) { if(confirm('Reset all values?')) { Object.keys(state[s]).forEach(k => state[s][k] = 0); save(); } }
-        async function sync(n, v) { try { await fetch(`${boardIP}/update?v=${v}&n=${encodeURIComponent(n)}`, { mode: 'no-cors' }); } catch(e){} }
 
         function render() {
             document.getElementById('header-batt-val').innerText = state.batt + "%";
-            const bImg = document.getElementById('header-batt-img');
-            if(state.charging) bImg.src = "Battery_Charging.svg";
-            else if(state.batt > 80) bImg.src = "Battery_Full.svg";
-            else if(state.batt > 20) bImg.src = "Battery_half.svg";
-            else bImg.src = "Battery_Empty.svg";
-
             const tList = document.getElementById('token-list');
             tList.innerHTML = state.tokens.map((t, i) => `
                 <div class="container">
@@ -220,48 +186,16 @@
                         <div class="batch-row">
                             <input type="number" id="bv-${i}" value="1" style="width:50px; border:none; background:transparent; font-size:24px; font-weight:900; border-bottom:2px solid #BBB; text-align:center; outline:none;">
                             <button class="btn-double" onclick="document.getElementById('bv-${i}').value *= 2">x2</button>
-                            <button class="btn-double" onclick="document.getElementById('bv-${i}').value *= 3">x3</button>
                             <button class="btn-plus" style="width:50px; height:45px;" onclick="state.tokens[${i}].count += parseInt(document.getElementById('bv-${i}').value); save()">+</button>
                         </div>
                     </div>
                     <div class="control-grid">
                         <button class="btn-minus" id="tm-${i}">-1</button>
                         <button class="btn-plus" id="tp-${i}">+1</button>
-                        <button class="btn-double" style="width:100%" onclick="state.tokens[${i}].count *= 2; save()">x2</button>
-                        <button class="btn-double" style="width:100%" onclick="state.tokens[${i}].count *= 3; save()">x3</button>
                     </div>
                     <button class="btn-upload" onclick="sync(state.tokens[${i}].name, state.tokens[${i}].count)">Upload</button>
                 </div>
             `).join('');
-
-            const renderSub = (obj, targetId, stateKey) => {
-                const target = document.getElementById(targetId);
-                target.innerHTML = Object.keys(obj).map(key => `
-                    <div class="sub-tracker-item">
-                        <div class="sub-label-row">
-                            <span class="sub-name">${key}</span>
-                            <span class="sub-val">${obj[key]}</span>
-                        </div>
-                        <div class="control-grid">
-                            <button class="btn-minus" id="sm-${stateKey}-${key}">-1</button>
-                            <button class="btn-plus" id="sp-${stateKey}-${key}">+1</button>
-                        </div>
-                        <button class="btn-upload" onclick="sync('${key}', state.${stateKey}['${key}'])">Sync ${key}</button>
-                    </div>
-                `).join('');
-
-                Object.keys(obj).forEach(key => {
-                    setupLongPress(document.getElementById(`sm-${stateKey}-${key}`), 
-                        () => { state[stateKey][key]--; save(); }, 
-                        () => { state[stateKey][key] -= RAPID_STEP; save(); });
-                    setupLongPress(document.getElementById(`sp-${stateKey}-${key}`), 
-                        () => { state[stateKey][key]++; save(); }, 
-                        () => { state[stateKey][key] += RAPID_STEP; save(); });
-                });
-            };
-
-            renderSub(state.globals, 'globals-list', 'globals');
-            renderSub(state.cmdr, 'cmdr-list', 'cmdr');
 
             state.tokens.forEach((_, i) => {
                 setupLongPress(document.getElementById(`tm-${i}`), () => { if(state.tokens[i].count > 0) state.tokens[i].count--; save(); }, () => { state.tokens[i].count -= RAPID_STEP; if(state.tokens[i].count < 0) state.tokens[i].count = 0; save(); });
