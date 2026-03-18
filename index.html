@@ -3,6 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="MTG Link">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#EDEEF4">
+    
+    <link id="manifest-placeholder" rel="manifest">
+
     <title>MTG Link: Tactical Suite</title>
     <style>
         :root {
@@ -23,11 +32,15 @@
             background: linear-gradient(to bottom, var(--bg-top) 0%, var(--bg-bottom) 100%);
             background-attachment: fixed;
             color: var(--text-black); margin: 0; padding-bottom: 120px; min-height: 100vh;
+            /* Prevents pull-to-refresh when sliding down */
+            overscroll-behavior-y: contain; 
         }
 
         header {
             padding: 12px 20px; display: flex; justify-content: space-between; align-items: center;
             font-size: 13px; font-weight: 700; color: #0D0E0E;
+            /* Safe area padding for iPhones with notches */
+            padding-top: env(safe-area-inset-top); 
         }
         
         .header-icon { height: var(--header-icon-h); vertical-align: middle; }
@@ -43,7 +56,6 @@
             position: relative;
         }
 
-        /* Token Card Specifics */
         .close-btn { position: absolute; top: 20px; right: 25px; width: 20px; height: 20px; background: #FF9E00; border-radius: 50%; cursor: pointer; border: none; }
         .token-name-input { width: 80%; border: none; background: transparent; text-align: center; font-size: 26px; font-weight: 500; border-bottom: 1px solid #DDD; padding-bottom: 5px; margin: 0 auto 15px auto; display: block; outline: none; }
         .count-display { font-size: 110px; font-weight: 900; text-align: center; margin: 10px 0; line-height: 0.9; }
@@ -51,14 +63,12 @@
         .batch-label { font-size: 11px; font-weight: 700; color: #666; text-align: center; text-transform: uppercase; margin-bottom: 10px; }
         .batch-row { display: flex; justify-content: center; align-items: center; gap: 10px; }
 
-        /* Counter Sub-Cards (For Globals/Commander) */
         .sub-tracker-item { background: white; border-radius: 25px; padding: 20px; margin-bottom: 12px; border: 1px solid #EEE; }
         .sub-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .sub-name { font-weight: 700; font-size: 22px; }
         .sub-val { font-weight: 900; font-size: 34px; }
 
-        /* Buttons */
-        button { border: none; border-radius: 14px; color: white; font-weight: 800; cursor: pointer; }
+        button { border: none; border-radius: 14px; color: white; font-weight: 800; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         button:active { opacity: 0.8; }
         .btn-plus { background: var(--btn-plus); height: 55px; font-size: 28px; width: 100%; }
         .btn-minus { background: var(--btn-minus); height: 55px; font-size: 28px; width: 100%; }
@@ -69,8 +79,7 @@
 
         .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-        /* Nav Bar */
-        .nav-bar { position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); background: #0D0E0E; width: 90%; max-width: 420px; height: 75px; border-radius: 40px; display: flex; justify-content: space-around; align-items: center; padding: 0 10px; z-index: 1000; }
+        .nav-bar { position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); background: #0D0E0E; width: 90%; max-width: 420px; height: 75px; border-radius: 40px; display: flex; justify-content: space-around; align-items: center; padding: 0 10px; z-index: 1000; padding-bottom: env(safe-area-inset-bottom); }
         .nav-item { height: 58px; width: 75px; display: flex; justify-content: center; align-items: center; cursor: pointer; border-radius: 30px; }
         .nav-item img { height: 32px; filter: invert(1); }
         .nav-item.active { background: #FFFFFF; border: 2px solid #FFFFFF; }
@@ -84,7 +93,7 @@
 
     <header>
         <div><img src="Wi-Fi_On.svg" class="header-icon wifi-icon"> 192.168.4.1</div>
-        <div><span id="header-batt-val">99%</span> <img id="header-batt-img" src="Battery_Full.svg" class="header-icon"></div>
+        <div><span id="header-batt-val">--%</span> <img id="header-batt-img" src="Battery_Full.svg" class="header-icon"></div>
     </header>
 
     <div id="tokens-view" class="view active">
@@ -115,7 +124,7 @@
     <div id="settings-view" class="view">
         <div class="view-title">Settings</div>
         <div class="container">
-            <button class="btn-upload" onclick="localStorage.clear(); location.reload();" style="background: var(--btn-reset:)">Clear Local Data</button>
+            <button class="btn-upload" onclick="localStorage.clear(); location.reload();" style="background: var(--btn-reset)">Clear Local Data</button>
         </div>
     </div>
 
@@ -127,6 +136,32 @@
     </nav>
 
     <script>
+        // --- PWA SETUP ---
+        // Generates manifest dynamically to keep this as a single file deployment
+        const manifest = {
+            "name": "MTG Link Tactical",
+            "short_name": "MTG Link",
+            "start_url": ".",
+            "display": "standalone",
+            "background_color": "#EDEEF4",
+            "theme_color": "#EDEEF4",
+            "icons": [
+                { "src": "token-icon.svg", "sizes": "512x512", "type": "image/svg+xml" }
+            ]
+        };
+        const stringManifest = JSON.stringify(manifest);
+        const blob = new Blob([stringManifest], {type: 'application/json'});
+        const manifestURL = URL.createObjectURL(blob);
+        document.querySelector('#manifest-placeholder').setAttribute('href', manifestURL);
+
+        // Simple Service Worker Registration for Offline Capability
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(err => console.log('SW reg failed: ', err));
+            });
+        }
+
+        // --- APP LOGIC ---
         const RAPID_STEP = 5;
         const boardIP = "//192.168.4.1";
 
@@ -147,8 +182,8 @@
             el.classList.add('active');
         }
 
-        // Long Press Logic
         function setupLongPress(btn, onShort, onLong) {
+            if (!btn) return;
             let timer, isLong = false;
             btn.onpointerdown = (e) => {
                 isLong = false;
@@ -161,15 +196,12 @@
             btn.onpointerleave = () => clearTimeout(timer);
         }
 
-        /* ACTIONS */
         function addToken() { state.tokens.push({ name: "New Token", count: 1 }); save(); }
         function applyPreset(n) { state.tokens.push({ name: n, count: 1 }); save(); }
         function resetSection(s) { if(confirm('Reset all values?')) { Object.keys(state[s]).forEach(k => state[s][k] = 0); save(); } }
         async function sync(n, v) { try { await fetch(`${boardIP}/update?v=${v}&n=${encodeURIComponent(n)}`, { mode: 'no-cors' }); } catch(e){} }
 
-        /* RENDER */
         function render() {
-            // Header
             document.getElementById('header-batt-val').innerText = state.batt + "%";
             const bImg = document.getElementById('header-batt-img');
             if(state.charging) bImg.src = "Battery_Charging.svg";
@@ -177,7 +209,6 @@
             else if(state.batt > 20) bImg.src = "Battery_half.svg";
             else bImg.src = "Battery_Empty.svg";
 
-            // Tokens
             const tList = document.getElementById('token-list');
             tList.innerHTML = state.tokens.map((t, i) => `
                 <div class="container">
@@ -203,7 +234,6 @@
                 </div>
             `).join('');
 
-            // Sub-Counter Pages (Globals & Cmdr)
             const renderSub = (obj, targetId, stateKey) => {
                 const target = document.getElementById(targetId);
                 target.innerHTML = Object.keys(obj).map(key => `
@@ -220,7 +250,6 @@
                     </div>
                 `).join('');
 
-                // Bind Long Press for these items
                 Object.keys(obj).forEach(key => {
                     setupLongPress(document.getElementById(`sm-${stateKey}-${key}`), 
                         () => { state[stateKey][key]--; save(); }, 
@@ -234,9 +263,8 @@
             renderSub(state.globals, 'globals-list', 'globals');
             renderSub(state.cmdr, 'cmdr-list', 'cmdr');
 
-            // Bind Long Press for Tokens
             state.tokens.forEach((_, i) => {
-                setupLongPress(document.getElementById(`tm-${i}`), () => { state.tokens[i].count--; save(); }, () => { state.tokens[i].count -= RAPID_STEP; save(); });
+                setupLongPress(document.getElementById(`tm-${i}`), () => { if(state.tokens[i].count > 0) state.tokens[i].count--; save(); }, () => { state.tokens[i].count -= RAPID_STEP; if(state.tokens[i].count < 0) state.tokens[i].count = 0; save(); });
                 setupLongPress(document.getElementById(`tp-${i}`), () => { state.tokens[i].count++; save(); }, () => { state.tokens[i].count += RAPID_STEP; save(); });
             });
         }
