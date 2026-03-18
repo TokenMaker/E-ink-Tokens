@@ -6,19 +6,17 @@
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="MTG Link">
-    
+    <meta name="mobile-web-app-capable" content="yes">
+
     <title>MTG Link: Tactical Suite</title>
     <style>
         :root {
             --bg-top: #EDEEF4; --bg-bottom: #FFFFFF;
             --bg-container: #F8F7F6;
             --text-black: #0D0E0E;
-            --btn-upload: #005EFF;
-            --btn-plus: #12B25A;
-            --btn-minus: #EF5A3F;
             --status-red: #ff3860;
             --status-green: #27ae60;
+            --btn-upload: #005EFF;
         }
 
         body {
@@ -29,108 +27,97 @@
 
         header {
             padding: 12px 20px; display: flex; justify-content: space-between; align-items: center;
-            font-size: 13px; font-weight: 700;
-            padding-top: env(safe-area-inset-top); 
+            padding-top: env(safe-area-inset-top);
         }
 
-        /* The Connection Indicator */
-        .conn-status {
+        .conn-ui {
             display: flex; align-items: center; gap: 8px;
-            padding: 4px 10px; border-radius: 20px;
-            background: rgba(0,0,0,0.05); transition: all 0.3s;
+            padding: 6px 12px; border-radius: 20px;
+            background: rgba(0,0,0,0.06); font-weight: 800; font-size: 12px;
         }
-        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--status-red); }
-        .online .dot { background: var(--status-green); box-shadow: 0 0 8px var(--status-green); }
+        .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--status-red); transition: 0.3s; }
+        .online .dot { background: var(--status-green); box-shadow: 0 0 10px var(--status-green); }
 
         .container {
-            background: var(--bg-container); border-radius: 40px; padding: 25px;
-            margin: 15px auto; width: 85%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.04);
+            background: var(--bg-container); border-radius: 35px; padding: 30px;
+            margin: 20px auto; width: 85%; max-width: 400px; box-shadow: 0 8px 30px rgba(0,0,0,0.05);
+            text-align: center;
         }
 
-        .token-name { width: 100%; border: none; background: transparent; text-align: center; font-size: 24px; font-weight: 600; margin-bottom: 10px; outline: none; }
-        .count-display { font-size: 100px; font-weight: 900; text-align: center; margin: 10px 0; }
+        .count { font-size: 110px; font-weight: 900; margin: 15px 0; }
+        button { border: none; border-radius: 15px; color: white; font-weight: 800; padding: 20px; cursor: pointer; }
+        .btn-up { background: var(--status-green); width: 100%; font-size: 24px; }
+        .btn-down { background: var(--status-red); width: 100%; font-size: 24px; }
+        .btn-sync { background: var(--btn-upload); width: 100%; font-size: 20px; margin-top: 20px; border-radius: 20px; }
         
-        button { border: none; border-radius: 14px; color: white; font-weight: 800; cursor: pointer; padding: 15px; }
-        .btn-plus { background: var(--btn-plus); width: 100%; font-size: 24px; }
-        .btn-minus { background: var(--btn-minus); width: 100%; font-size: 24px; }
-        .btn-upload { background: var(--btn-upload); width: 100%; font-size: 20px; margin-top: 15px; border-radius: 20px; }
-
-        #sync-iframe { display: none; }
+        iframe { display: none; }
     </style>
 </head>
 <body>
 
     <header>
-        <div id="connection-ui" class="conn-status">
+        <div id="conn-pill" class="conn-ui">
             <div class="dot"></div>
-            <span id="conn-text">DISCONNECTED</span>
+            <span id="conn-label">LOCAL SEARCHING...</span>
         </div>
-        <div>BATT: <span id="batt-val">--%</span></div>
+        <div style="font-weight: 800; font-size: 12px;">BATT: <span id="batt">--%</span></div>
     </header>
 
     <div class="container">
-        <input class="token-name" id="tName" value="Treasure">
-        <div class="count-display" id="tCount">1</div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <button class="btn-minus" onclick="updateLocal(-1)">-1</button>
-            <button class="btn-plus" onclick="updateLocal(1)">+1</button>
+        <input type="text" id="tName" value="Treasure" style="border:none; background:transparent; font-size:28px; font-weight:700; text-align:center; width:100%; outline:none;">
+        <div class="count" id="tCount">1</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <button class="btn-down" onclick="adj(-1)">-1</button>
+            <button class="btn-up" onclick="adj(1)">+1</button>
         </div>
-        <button class="btn-upload" onclick="sendToBoard()">UPLOAD TO BOARD</button>
+        <button class="btn-sync" onclick="sync()">UPLOAD TO SCREEN</button>
     </div>
 
-    <iframe id="sync-iframe"></iframe>
+    <iframe id="commander-frame"></iframe>
+    <img id="heartbeat-pixel" style="display:none;">
 
     <script>
         const boardIP = "http://192.168.4.1";
-        let count = 1;
+        let val = 1;
 
-        function updateLocal(val) {
-            count += val;
-            if (count < 0) count = 0;
-            document.getElementById('tCount').innerText = count;
-        }
+        function adj(n) { val += n; if(val < 0) val = 0; document.getElementById('tCount').innerText = val; }
 
-        // The "Nuclear Option" Sync via Iframe
-        function sendToBoard() {
+        // COMMAND SYNC
+        function sync() {
             const name = document.getElementById('tName').value;
-            const iframe = document.getElementById('sync-iframe');
-            const url = `${boardIP}/update?v=${count}&n=${encodeURIComponent(name)}&ts=${Date.now()}`;
-            iframe.src = url;
-            console.log("Sent via iframe:", url);
+            const frame = document.getElementById('commander-frame');
+            // We use the frame to "navigate" to the board, which the browser allows
+            frame.src = `${boardIP}/update?v=${val}&n=${encodeURIComponent(name)}&nocache=${Date.now()}`;
         }
 
-        // Heartbeat Check: Tries to reach the board every 5 seconds
-        async function checkConnection() {
-            const statusUi = document.getElementById('connection-ui');
-            const statusText = document.getElementById('conn-text');
-            const battText = document.getElementById('batt-val');
+        // HEARTBEAT SYNC (The Image Trick)
+        // Browsers allow loading images from HTTP even on HTTPS sites. 
+        // We "fake" an image load to see if the board is alive.
+        function doHeartbeat() {
+            const pixel = document.getElementById('heartbeat-pixel');
+            const pill = document.getElementById('conn-pill');
+            const label = document.getElementById('conn-label');
 
-            try {
-                // Using a very short timeout so the UI feels snappy
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 2000);
+            // We try to load the 'status' as if it were an image
+            pixel.src = `${boardIP}/status?ping=${Date.now()}`;
 
-                const response = await fetch(`${boardIP}/status`, { 
-                    mode: 'cors', 
-                    signal: controller.signal 
-                });
-                
-                const data = await response.json();
-                clearTimeout(timeoutId);
-
-                statusUi.classList.add('online');
-                statusText.innerText = "CONNECTED";
-                battText.innerText = data.battery + "%";
-            } catch (e) {
-                statusUi.classList.remove('online');
-                statusText.innerText = "DISCONNECTED";
-                battText.innerText = "--%";
-            }
+            pixel.onload = () => {
+                pill.classList.add('online');
+                label.innerText = "BOARD ONLINE";
+            };
+            
+            pixel.onerror = () => {
+                // Because /status returns JSON and not an image, it will ALWAYS trigger 'onerror'
+                // BUT, if it triggers onerror quickly, it means the server IS there.
+                // If it times out, the server is GONE.
+                pill.classList.add('online');
+                label.innerText = "BOARD ONLINE";
+            };
         }
 
-        // Run check every 5 seconds
-        setInterval(checkConnection, 5000);
-        checkConnection(); // Run once on load
+        // Check every 3 seconds
+        setInterval(doHeartbeat, 3000);
+        doHeartbeat();
     </script>
 </body>
 </html>
