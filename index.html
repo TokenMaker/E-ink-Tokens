@@ -42,8 +42,6 @@
         }
         
         .header-icon { height: var(--header-icon-h); vertical-align: middle; }
-        .wifi-icon { margin-right: 6px; }
-
         .view-title { font-size: 44px; font-weight: 900; text-align: center; text-transform: uppercase; margin: 10px 0; letter-spacing: -1px; }
 
         .container {
@@ -52,23 +50,14 @@
             position: relative;
         }
 
-        .close-btn { position: absolute; top: 20px; right: 25px; width: 20px; height: 20px; background: #FF9E00; border-radius: 50%; cursor: pointer; border: none; }
         .token-name-input { width: 80%; border: none; background: transparent; text-align: center; font-size: 26px; font-weight: 500; border-bottom: 1px solid #DDD; padding-bottom: 5px; margin: 0 auto 15px auto; display: block; outline: none; }
         .count-display { font-size: 110px; font-weight: 900; text-align: center; margin: 10px 0; line-height: 0.9; }
-        .batch-box { background: var(--bg-sub); border-radius: 18px; padding: 15px; margin: 20px 0; }
-        .batch-label { font-size: 11px; font-weight: 700; color: #666; text-align: center; text-transform: uppercase; margin-bottom: 10px; }
-        .batch-row { display: flex; justify-content: center; align-items: center; gap: 10px; }
 
         button { border: none; border-radius: 14px; color: white; font-weight: 800; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-        button:active { opacity: 0.8; transform: scale(0.98); }
+        button:active { opacity: 0.8; transform: scale(0.96); }
         .btn-plus { background: var(--btn-plus); height: 55px; font-size: 28px; width: 100%; }
         .btn-minus { background: var(--btn-minus); height: 55px; font-size: 28px; width: 100%; }
-        .btn-double { background: var(--btn-double); height: 45px; width: 60px; font-size: 20px; }
         .btn-upload { background: var(--btn-upload); width: 100%; padding: 18px; font-size: 22px; border-radius: 20px; margin-top: 15px; }
-        .btn-reset { background: var(--btn-reset); padding: 10px 30px; border-radius: 12px; font-size: 15px; }
-        .btn-preset { background: var(--btn-preset); color: var(--text-black); padding: 10px 18px; font-size: 14px; font-weight: 700; border-radius: 12px; }
-
-        .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
         .nav-bar { position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); background: #0D0E0E; width: 90%; max-width: 420px; height: 75px; border-radius: 40px; display: flex; justify-content: space-around; align-items: center; padding: 0 10px; z-index: 1000; padding-bottom: env(safe-area-inset-bottom); }
         .nav-item { height: 58px; width: 75px; display: flex; justify-content: center; align-items: center; cursor: pointer; border-radius: 30px; }
@@ -78,34 +67,27 @@
 
         .view { display: none; width: 100%; }
         .view.active { display: block; }
+        
+        #sync-iframe { display: none; }
     </style>
 </head>
 <body>
 
     <header>
-        <div><img src="Wi-Fi_On.svg" class="header-icon wifi-icon"> 192.168.4.1</div>
-        <div><span id="header-batt-val">--%</span> <img id="header-batt-img" src="Battery_Full.svg" class="header-icon"></div>
+        <div><img src="Wi-Fi_On.svg" class="header-icon"> 192.168.4.1</div>
+        <div><span id="header-batt-val">100%</span> <img id="header-batt-img" src="Battery_Full.svg" class="header-icon"></div>
     </header>
 
     <div id="tokens-view" class="view active">
         <div class="view-title">Token Tracker</div>
-        <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 20px;">
-            <button class="btn-preset" onclick="applyPreset('Treasure')">Treasure</button>
-            <button class="btn-preset" onclick="applyPreset('Food')">Food</button>
-            <button class="btn-preset" onclick="applyPreset('Clue')">Clue</button>
-        </div>
         <div id="token-list"></div>
-        <div style="text-align:center; margin-top:20px;">
-            <button onclick="addToken()" style="background:white; color:black; box-shadow:0 6px 15px rgba(0,0,0,0.1); width:60px; height:60px; border-radius:20px; font-size:35px; margin:0 auto;">+</button>
-        </div>
     </div>
 
     <nav class="nav-bar">
         <div class="nav-item active" onclick="showView('tokens-view', this)"><img src="token-icon.svg"></div>
-        <div class="nav-item" onclick="showView('globals-view', this)"><img src="global-icon.svg"></div>
-        <div class="nav-item" onclick="showView('cmdr-view', this)"><img src="cmdr-icon.svg"></div>
-        <div class="nav-item" onclick="showView('settings-view', this)"><img src="setting-icon.svg"></div>
-    </nav>
+        </nav>
+
+    <iframe id="sync-iframe"></iframe>
 
     <script>
         // --- PWA MANIFEST ---
@@ -126,11 +108,7 @@
         const boardIP = "http://192.168.4.1";
 
         let state = JSON.parse(localStorage.getItem('mtg_v5_state')) || {
-            tokens: [{ name: "New Token", count: 1 }],
-            globals: { Poison: 0, Energy: 0, RAD: 0, Experience: 0 },
-            cmdr: { "Player 2": 0, "Player 3": 0, "Player 4": 0, "Player 5": 0 },
-            batt: 100,
-            charging: false
+            tokens: [{ name: "Treasure", count: 1 }]
         };
 
         function save() { localStorage.setItem('mtg_v5_state', JSON.stringify(state)); render(); }
@@ -142,65 +120,28 @@
             el.classList.add('active');
         }
 
-        // --- UPDATED SYNC LOGIC ---
-        async function sync(n, v) { 
-            const url = `${boardIP}/update?v=${v}&n=${encodeURIComponent(n)}`;
-            console.log("Syncing:", url);
-            try { 
-                await fetch(url, { 
-                    method: 'GET',
-                    mode: 'no-cors', 
-                    cache: 'no-cache',
-                    credentials: 'omit'
-                }); 
-            } catch(e){ console.error("Sync error:", e); } 
+        // --- IFRAME SYNC METHOD ---
+        function sync(n, v) { 
+            const iframe = document.getElementById('sync-iframe');
+            // Adding a timestamp (t=) prevents the browser from caching the request
+            const url = `${boardIP}/update?v=${v}&n=${encodeURIComponent(n)}&t=${Date.now()}`;
+            console.log("Syncing via Iframe:", url);
+            iframe.src = url;
         }
-
-        function setupLongPress(btn, onShort, onLong) {
-            if (!btn) return;
-            let timer, isLong = false;
-            btn.onpointerdown = (e) => {
-                isLong = false;
-                timer = setTimeout(() => { isLong = true; onLong(); }, 600);
-            };
-            btn.onpointerup = (e) => {
-                clearTimeout(timer);
-                if (!isLong) onShort();
-            };
-            btn.onpointerleave = () => clearTimeout(timer);
-        }
-
-        function addToken() { state.tokens.push({ name: "New Token", count: 1 }); save(); }
-        function applyPreset(n) { state.tokens.push({ name: n, count: 1 }); save(); }
 
         function render() {
-            document.getElementById('header-batt-val').innerText = state.batt + "%";
             const tList = document.getElementById('token-list');
             tList.innerHTML = state.tokens.map((t, i) => `
                 <div class="container">
-                    <button class="close-btn" onclick="state.tokens.splice(${i},1); save()"></button>
                     <input class="token-name-input" value="${t.name}" onchange="state.tokens[${i}].name=this.value; save()">
                     <div class="count-display">${t.count}</div>
-                    <div class="batch-box">
-                        <div class="batch-label">Create & Double Batch</div>
-                        <div class="batch-row">
-                            <input type="number" id="bv-${i}" value="1" style="width:50px; border:none; background:transparent; font-size:24px; font-weight:900; border-bottom:2px solid #BBB; text-align:center; outline:none;">
-                            <button class="btn-double" onclick="document.getElementById('bv-${i}').value *= 2">x2</button>
-                            <button class="btn-plus" style="width:50px; height:45px;" onclick="state.tokens[${i}].count += parseInt(document.getElementById('bv-${i}').value); save()">+</button>
-                        </div>
-                    </div>
-                    <div class="control-grid">
-                        <button class="btn-minus" id="tm-${i}">-1</button>
-                        <button class="btn-plus" id="tp-${i}">+1</button>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <button class="btn-minus" onclick="state.tokens[${i}].count--; save()">-1</button>
+                        <button class="btn-plus" onclick="state.tokens[${i}].count++; save()">+1</button>
                     </div>
                     <button class="btn-upload" onclick="sync(state.tokens[${i}].name, state.tokens[${i}].count)">Upload</button>
                 </div>
             `).join('');
-
-            state.tokens.forEach((_, i) => {
-                setupLongPress(document.getElementById(`tm-${i}`), () => { if(state.tokens[i].count > 0) state.tokens[i].count--; save(); }, () => { state.tokens[i].count -= RAPID_STEP; if(state.tokens[i].count < 0) state.tokens[i].count = 0; save(); });
-                setupLongPress(document.getElementById(`tp-${i}`), () => { state.tokens[i].count++; save(); }, () => { state.tokens[i].count += RAPID_STEP; save(); });
-            });
         }
 
         render();
