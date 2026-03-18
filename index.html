@@ -7,144 +7,130 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="MTG Link">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#EDEEF4">
     
-    <link id="manifest-placeholder" rel="manifest">
-
     <title>MTG Link: Tactical Suite</title>
     <style>
         :root {
             --bg-top: #EDEEF4; --bg-bottom: #FFFFFF;
-            --bg-container: #F8F7F6; --bg-sub: #F0F0F0;
+            --bg-container: #F8F7F6;
             --text-black: #0D0E0E;
             --btn-upload: #005EFF;
             --btn-plus: #12B25A;
             --btn-minus: #EF5A3F;
-            --btn-double: #6E55FF;
-            --btn-reset: #FF9E00;
-            --btn-preset: #F0E7DF;
-            --header-icon-h: 13px;
+            --status-red: #ff3860;
+            --status-green: #27ae60;
         }
 
         body {
             font-family: 'Inter', -apple-system, sans-serif;
             background: linear-gradient(to bottom, var(--bg-top) 0%, var(--bg-bottom) 100%);
-            background-attachment: fixed;
-            color: var(--text-black); margin: 0; padding-bottom: 140px; min-height: 100vh;
-            overscroll-behavior-y: contain; 
+            margin: 0; min-height: 100vh; padding-bottom: 100px;
         }
 
         header {
             padding: 12px 20px; display: flex; justify-content: space-between; align-items: center;
-            font-size: 13px; font-weight: 700; color: #0D0E0E;
+            font-size: 13px; font-weight: 700;
             padding-top: env(safe-area-inset-top); 
         }
-        
-        .header-icon { height: var(--header-icon-h); vertical-align: middle; }
-        .view-title { font-size: 44px; font-weight: 900; text-align: center; text-transform: uppercase; margin: 10px 0; letter-spacing: -1px; }
+
+        /* The Connection Indicator */
+        .conn-status {
+            display: flex; align-items: center; gap: 8px;
+            padding: 4px 10px; border-radius: 20px;
+            background: rgba(0,0,0,0.05); transition: all 0.3s;
+        }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--status-red); }
+        .online .dot { background: var(--status-green); box-shadow: 0 0 8px var(--status-green); }
 
         .container {
-            background: var(--bg-container); border-radius: 40px; padding: 30px 20px;
-            margin: 15px auto; width: 88%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.04);
-            position: relative;
+            background: var(--bg-container); border-radius: 40px; padding: 25px;
+            margin: 15px auto; width: 85%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.04);
         }
 
-        .token-name-input { width: 80%; border: none; background: transparent; text-align: center; font-size: 26px; font-weight: 500; border-bottom: 1px solid #DDD; padding-bottom: 5px; margin: 0 auto 15px auto; display: block; outline: none; }
-        .count-display { font-size: 110px; font-weight: 900; text-align: center; margin: 10px 0; line-height: 0.9; }
-
-        button { border: none; border-radius: 14px; color: white; font-weight: 800; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-        button:active { opacity: 0.8; transform: scale(0.96); }
-        .btn-plus { background: var(--btn-plus); height: 55px; font-size: 28px; width: 100%; }
-        .btn-minus { background: var(--btn-minus); height: 55px; font-size: 28px; width: 100%; }
-        .btn-upload { background: var(--btn-upload); width: 100%; padding: 18px; font-size: 22px; border-radius: 20px; margin-top: 15px; }
-
-        .nav-bar { position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); background: #0D0E0E; width: 90%; max-width: 420px; height: 75px; border-radius: 40px; display: flex; justify-content: space-around; align-items: center; padding: 0 10px; z-index: 1000; padding-bottom: env(safe-area-inset-bottom); }
-        .nav-item { height: 58px; width: 75px; display: flex; justify-content: center; align-items: center; cursor: pointer; border-radius: 30px; }
-        .nav-item img { height: 32px; filter: invert(1); }
-        .nav-item.active { background: #FFFFFF; border: 2px solid #FFFFFF; }
-        .nav-item.active img { filter: invert(0); }
-
-        .view { display: none; width: 100%; }
-        .view.active { display: block; }
+        .token-name { width: 100%; border: none; background: transparent; text-align: center; font-size: 24px; font-weight: 600; margin-bottom: 10px; outline: none; }
+        .count-display { font-size: 100px; font-weight: 900; text-align: center; margin: 10px 0; }
         
+        button { border: none; border-radius: 14px; color: white; font-weight: 800; cursor: pointer; padding: 15px; }
+        .btn-plus { background: var(--btn-plus); width: 100%; font-size: 24px; }
+        .btn-minus { background: var(--btn-minus); width: 100%; font-size: 24px; }
+        .btn-upload { background: var(--btn-upload); width: 100%; font-size: 20px; margin-top: 15px; border-radius: 20px; }
+
         #sync-iframe { display: none; }
     </style>
 </head>
 <body>
 
     <header>
-        <div><img src="Wi-Fi_On.svg" class="header-icon"> 192.168.4.1</div>
-        <div><span id="header-batt-val">100%</span> <img id="header-batt-img" src="Battery_Full.svg" class="header-icon"></div>
+        <div id="connection-ui" class="conn-status">
+            <div class="dot"></div>
+            <span id="conn-text">DISCONNECTED</span>
+        </div>
+        <div>BATT: <span id="batt-val">--%</span></div>
     </header>
 
-    <div id="tokens-view" class="view active">
-        <div class="view-title">Token Tracker</div>
-        <div id="token-list"></div>
+    <div class="container">
+        <input class="token-name" id="tName" value="Treasure">
+        <div class="count-display" id="tCount">1</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <button class="btn-minus" onclick="updateLocal(-1)">-1</button>
+            <button class="btn-plus" onclick="updateLocal(1)">+1</button>
+        </div>
+        <button class="btn-upload" onclick="sendToBoard()">UPLOAD TO BOARD</button>
     </div>
-
-    <nav class="nav-bar">
-        <div class="nav-item active" onclick="showView('tokens-view', this)"><img src="token-icon.svg"></div>
-        </nav>
 
     <iframe id="sync-iframe"></iframe>
 
     <script>
-        // --- PWA MANIFEST ---
-        const manifest = {
-            "name": "MTG Link Tactical",
-            "short_name": "MTG Link",
-            "start_url": ".",
-            "display": "standalone",
-            "background_color": "#EDEEF4",
-            "theme_color": "#EDEEF4",
-            "icons": [{ "src": "token-icon.svg", "sizes": "512x512", "type": "image/svg+xml" }]
-        };
-        const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
-        document.querySelector('#manifest-placeholder').setAttribute('href', URL.createObjectURL(manifestBlob));
-
-        // --- APP STATE ---
-        const RAPID_STEP = 5;
         const boardIP = "http://192.168.4.1";
+        let count = 1;
 
-        let state = JSON.parse(localStorage.getItem('mtg_v5_state')) || {
-            tokens: [{ name: "Treasure", count: 1 }]
-        };
-
-        function save() { localStorage.setItem('mtg_v5_state', JSON.stringify(state)); render(); }
-        
-        function showView(id, el) {
-            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
-            el.classList.add('active');
+        function updateLocal(val) {
+            count += val;
+            if (count < 0) count = 0;
+            document.getElementById('tCount').innerText = count;
         }
 
-        // --- IFRAME SYNC METHOD ---
-        function sync(n, v) { 
+        // The "Nuclear Option" Sync via Iframe
+        function sendToBoard() {
+            const name = document.getElementById('tName').value;
             const iframe = document.getElementById('sync-iframe');
-            // Adding a timestamp (t=) prevents the browser from caching the request
-            const url = `${boardIP}/update?v=${v}&n=${encodeURIComponent(n)}&t=${Date.now()}`;
-            console.log("Syncing via Iframe:", url);
+            const url = `${boardIP}/update?v=${count}&n=${encodeURIComponent(name)}&ts=${Date.now()}`;
             iframe.src = url;
+            console.log("Sent via iframe:", url);
         }
 
-        function render() {
-            const tList = document.getElementById('token-list');
-            tList.innerHTML = state.tokens.map((t, i) => `
-                <div class="container">
-                    <input class="token-name-input" value="${t.name}" onchange="state.tokens[${i}].name=this.value; save()">
-                    <div class="count-display">${t.count}</div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                        <button class="btn-minus" onclick="state.tokens[${i}].count--; save()">-1</button>
-                        <button class="btn-plus" onclick="state.tokens[${i}].count++; save()">+1</button>
-                    </div>
-                    <button class="btn-upload" onclick="sync(state.tokens[${i}].name, state.tokens[${i}].count)">Upload</button>
-                </div>
-            `).join('');
+        // Heartbeat Check: Tries to reach the board every 5 seconds
+        async function checkConnection() {
+            const statusUi = document.getElementById('connection-ui');
+            const statusText = document.getElementById('conn-text');
+            const battText = document.getElementById('batt-val');
+
+            try {
+                // Using a very short timeout so the UI feels snappy
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+                const response = await fetch(`${boardIP}/status`, { 
+                    mode: 'cors', 
+                    signal: controller.signal 
+                });
+                
+                const data = await response.json();
+                clearTimeout(timeoutId);
+
+                statusUi.classList.add('online');
+                statusText.innerText = "CONNECTED";
+                battText.innerText = data.battery + "%";
+            } catch (e) {
+                statusUi.classList.remove('online');
+                statusText.innerText = "DISCONNECTED";
+                battText.innerText = "--%";
+            }
         }
 
-        render();
+        // Run check every 5 seconds
+        setInterval(checkConnection, 5000);
+        checkConnection(); // Run once on load
     </script>
 </body>
 </html>
